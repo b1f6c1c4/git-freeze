@@ -19,3 +19,7 @@ And now
 ```bash
 git-freeze
 ```
+
+## License
+
+MIT
