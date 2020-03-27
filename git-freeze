@@ -9,29 +9,65 @@ gitdir() {
 
 if [ "$#" -eq 1 ] && ([ "$1" = "-h" ] || [ "$1" = "--help" ]); then
     cat - <<EOF
-Usage: git-freeze [-h|--help] [--no-commit|--no-reset] ...
+Usage: git-freeze [-h|--help] [--shallow] [--octopus|--no-commit|--no-reset] ...
 
     Convert submodules to regular directories
 
+    --octopus: preserve history of all submodules by merging
+
+        Warning: ENTIRE history of ALL submodules is a huge deal!
+
     --no-commit: just give me the tree SHA1, don't commit
+
     --no-reset: just give me the index (implies --no-commit)
+
     ...: the rest parameters are passed directly to git commit
+
 EOF
 fi
 
 if [ "$#" -eq 1 ] && [ "$1" = "--" ]; then
     printf 'echo "Freezing $P" >&2\n'
-    printf 'git fetch -q %q HEAD\n' "file://$(gitdir)"
+    printf 'git fetch --depth=1 -q %q HEAD\n' "file://$(gitdir)"
     printf 'git update-index --force-remove -- "$P"\n'
     printf 'git read-tree "--prefix=$P" FETCH_HEAD\n'
     exit 0
 fi
+if [ "$#" -eq 1 ] && [ "$1" = "---" ]; then
+    printf 'echo "Freezing $P" >&2\n'
+    printf 'git fetch %q HEAD\n' "file://$(gitdir)"
+    printf 'git update-index --force-remove -- "$P"\n'
+    printf 'git read-tree "--prefix=$P" FETCH_HEAD\n'
+    printf 'git rev-parse FETCH_HEAD >> "$G/MERGE_HEAD"\n'
+    printf 'printf "%%s %%s\\n" "$P" "$(git rev-parse FETCH_HEAD)" >> "$G/MERGE_MSG"\n'
+    exit 0
+fi
 
+G="$(gitdir)"
 cd "$(git rev-parse --show-toplevel)"
 if [ ! -z "$(git diff-index --cached HEAD)" ]; then
     echo "Error: Index not clean." >&2
     exit 3
+elif [ -f "$G/MERGE_HEAD" ]; then
+    echo "Error: Merging in process." >&2
+    exit 3
 fi
+
+if [ "$#" -eq 1 ] && [ "$1" = "--octopus" ]; then
+    shift
+    TMPSH="$(mktemp)"
+    git submodule foreach --recursive "$0" --- | sed 's_^Entering _P=_' > "$TMPSH"
+    cat - >"$G/MERGE_MSG" <<EOF
+git-freeze: Convert submodules to regular dirs
+
+List of submodules converted:
+
+EOF
+    source "$TMPSH"
+    rm -f "$TMPSH"
+    exec git commit "$@"
+fi
+
 TMPSH="$(mktemp)"
 git submodule foreach --recursive "$0" -- | sed 's_^Entering _P=_' > "$TMPSH"
 source "$TMPSH"
