@@ -11,7 +11,7 @@ if [ "$#" -eq 1 ] && ([ "$1" = "-h" ] || [ "$1" = "--help" ]); then
     cat - <<EOF
 Usage: git-freeze [-h|--help] [--shallow] [--octopus|--no-commit|--no-reset] ...
 
-    Convert submodules to regular directories
+    Convert submodules to regular directories (of their HEADs)
 
     --octopus: preserve history of all submodules by merging
 
