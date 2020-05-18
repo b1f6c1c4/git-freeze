@@ -1,13 +1,13 @@
-#!/bin/sh
+#!/bin/bash
 
 set -euo pipefail
 
 gitdir() {
     D="$(git rev-parse --git-dir)"
-    echo "$(realpath "$D")"
+    realpath "$D"
 }
 
-if [ "$#" -eq 1 ] && ([ "$1" = "-h" ] || [ "$1" = "--help" ]); then
+if [ "$#" -eq 1 ] && { [ "$1" = "-h" ] || [ "$1" = "--help" ]; }; then
     cat - <<EOF
 Usage: git-freeze [-h|--help] [--shallow] [--octopus|--no-commit|--no-reset] ...
 
@@ -50,7 +50,7 @@ EOF
 fi
 
 cd "$(git rev-parse --show-toplevel)"
-if [ ! -z "$(git diff-index --cached HEAD)" ]; then
+if [ -n "$(git diff-index --cached HEAD)" ]; then
     echo "Error: Index not clean." >&2
     exit 3
 elif [ -f "$G/MERGE_HEAD" ]; then
