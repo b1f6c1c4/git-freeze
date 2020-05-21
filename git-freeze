@@ -7,9 +7,9 @@ gitdir() {
     realpath "$D"
 }
 
-if [ "$#" -eq 1 ] && { [ "$1" = "-h" ] || [ "$1" = "--help" ]; }; then
+usage() {
     cat - <<EOF
-Usage: git-freeze [-h|--help] [--shallow] [--octopus|--no-commit|--no-reset] ...
+Usage: git-freeze [-h|--help] [--octopus|--no-commit|--no-reset] [--] ...
 
     Convert submodules to regular directories (of their HEADs)
 
@@ -24,30 +24,59 @@ Usage: git-freeze [-h|--help] [--shallow] [--octopus|--no-commit|--no-reset] ...
     ...: the rest parameters are passed directly to git commit
 
 EOF
-fi
+}
 
 G="$(gitdir)"
 
-if [ "$#" -eq 1 ] && [ "$1" = "--" ]; then
+if [ "$#" -eq 2 ] && [ "$1" = "---" ]; then
     cat - <<EOF
-echo "Freezing \$P" >&2
-git fetch --depth=1 -q $(printf '%q' "file://$(gitdir)") HEAD
+printf "Freezing %s\n" "\$P" >&2
+git fetch $2 -q $(printf '%q' "file://$(gitdir)") HEAD
 git update-index --force-remove -- "\$P"
 git read-tree "--prefix=\$P" FETCH_HEAD
+git rev-parse FETCH_HEAD >>"\$G/MERGE_HEAD"
+printf "%s %s\n" "\$P" "\$(git rev-parse FETCH_HEAD)" >>"\$G/MERGE_MSG"
 EOF
     exit 0
 fi
-if [ "$#" -eq 1 ] && [ "$1" = "---" ]; then
-    cat - <<EOF
-echo "Freezing \$P" >&2
-git fetch $(printf '%q' "file://$(gitdir)") HEAD
-git update-index --force-remove -- "\$P"
-git read-tree "--prefix=\$P" FETCH_HEAD
-git rev-parse FETCH_HEAD >> "\$G/MERGE_HEAD"
-echo "\$P" "\$(git rev-parse FETCH_HEAD)" >>"\$G/MERGE_MSG"
-EOF
-    exit 0
-fi
+
+OCTOPUS=
+COMMIT=YES
+RESET=YES
+ARGS=()
+while [ "$#" -gt 0 ]; do
+    case "$1" in
+        -h|--help)
+            usage
+            exit 0
+            ;;
+        --octopus)
+            OCTOPUS=YES
+            shift
+            ;;
+        --no-commit)
+            COMMIT=
+            shift
+            ;;
+        --no-reset)
+            RESET=
+            COMMIT=
+            shift
+            ;;
+        --)
+            shift
+            break
+            ;;
+        *)
+            ARGS+=("$1")
+            shift
+            ;;
+    esac
+done
+while [ "$#" -gt 0 ]; do
+    ARGS+=("$1")
+    shift
+done
 
 cd "$(git rev-parse --show-toplevel)"
 if [ -n "$(git diff-index --cached HEAD)" ]; then
@@ -58,35 +87,37 @@ elif [ -f "$G/MERGE_HEAD" ]; then
     exit 3
 fi
 
-if [ "$#" -eq 1 ] && [ "$1" = "--octopus" ]; then
-    shift
-    TMPSH="$(mktemp)"
-    git submodule foreach --recursive "$0" --- | sed 's_^Entering _P=_' > "$TMPSH"
-    cat - >"$G/MERGE_MSG" <<EOF
+if [ ! -x "$0" ]; then
+    echo "Error: \$0 does not exist. Don't source the script." >&2
+    exit 3
+fi
+
+TMPSH="$(realpath "$(mktemp)")"
+finish() {
+    cd /
+    rm -f "$TMPSH"
+}
+trap finish EXIT
+
+WORD=
+[ -z "$OCTOPUS" ] && WORD="--depth=1"
+cat - >"$G/MERGE_MSG" <<EOF
 git-freeze: Convert submodules to regular dirs
 
 List of submodules converted:
 
 EOF
-    source "$TMPSH"
-    rm -f "$TMPSH"
-    exec git commit "$@"
-fi
 
 TMPSH="$(mktemp)"
-git submodule foreach --recursive "$0" -- | sed 's_^Entering _P=_' > "$TMPSH"
+git submodule foreach --recursive "$0" --- "$WORD" | sed 's_^Entering _P=_' > "$TMPSH"
 source "$TMPSH"
 rm -f "$TMPSH"
 
-if [ "$#" -eq 0 ]; then
-    exec git commit "$@"
-elif [ "$1" = "--no-commit" ]; then
-    git write-tree
-    git reset -q
-    exit 0
-elif [ "$1" = "--no-reset" ]; then
-    git write-tree
-    exit 0
-fi
+[ -z "$OCTOPUS" ] && rm -f "$G/MERGE_HEAD"
+[ -n "$OCTOPUS" ] && printf 'no-ff' >>"$G/MERGE_MODE"
 
-exec git commit "$@"
+[ -n "$COMMIT" ] && exec git commit "${ARGS[@]}"
+git write-tree
+[ -n "$RESET" ] && git reset -q
+
+exit 0
