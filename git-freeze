@@ -9,20 +9,19 @@ gitdir() {
 
 usage() {
     cat - <<EOF
-Usage: git-freeze [-h|--help] [--octopus|--no-commit|--no-reset] [--] ...
+Usage: git-freeze [-h|--help]
+        [--tree|--octopus] [--no-commit]
+        [--] <args-for-git-commit>
 
     Convert submodules to regular directories (of their HEADs)
 
-    --octopus: preserve history of all submodules by merging
+    --tree: Don't modify anything, just give me the tree SHA-1
+            (implies --no-commit)
 
+    --octopus: Preserve history of all submodules by merging
         Warning: ENTIRE history of ALL submodules is a huge deal!
 
-    --no-commit: just give me the tree SHA1, don't commit
-
-    --no-reset: just give me the index (implies --no-commit)
-
-    ...: the rest parameters are passed directly to git commit
-
+    --no-commit: Don't commit (like git merge --no-commit)
 EOF
 }
 
@@ -42,7 +41,7 @@ fi
 
 OCTOPUS=
 COMMIT=YES
-RESET=YES
+TREE=
 ARGS=()
 while [ "$#" -gt 0 ]; do
     case "$1" in
@@ -58,9 +57,9 @@ while [ "$#" -gt 0 ]; do
             COMMIT=
             shift
             ;;
-        --no-reset)
-            RESET=
+        --tree)
             COMMIT=
+            TREE=YES
             shift
             ;;
         --)
@@ -77,6 +76,11 @@ while [ "$#" -gt 0 ]; do
     ARGS+=("$1")
     shift
 done
+
+if [ -n "$TREE" ] && [ -n "$OCTOPUS" ]; then
+    echo "Error: --tree and --octopus are mutually exclusive." >&2
+    exit 3
+fi
 
 cd "$(git rev-parse --show-toplevel)"
 if [ -n "$(git diff-index --cached HEAD)" ]; then
@@ -114,10 +118,14 @@ source "$TMPSH"
 rm -f "$TMPSH"
 
 [ -z "$OCTOPUS" ] && rm -f "$G/MERGE_HEAD"
-[ -n "$OCTOPUS" ] && printf 'no-ff' >>"$G/MERGE_MODE"
 
+if [ -n "$TREE" ]; then
+    rm -f "$G/MERGE_MSG"
+    git write-tree
+    git reset -q
+fi
+
+[ -n "$OCTOPUS" ] && printf 'no-ff' >>"$G/MERGE_MODE"
 [ -n "$COMMIT" ] && exec git commit "${ARGS[@]}"
-git write-tree
-[ -n "$RESET" ] && git reset -q
 
 exit 0

@@ -1,12 +1,14 @@
 git clone --branch example-repo2 --recurse-submodules https://github.com/b1f6c1c4/git-get repo
 
-(cd repo && git-freeze -m msg --no-edit)
+(cd repo && git-freeze --no-commit)
 
 [ -f repo/sub/.git ]
 [ -f repo/xsub/.git ]
 [ -f repo/xsub/sub/.git ]
 git -C repo ls-files -s | grep -q -v '^160000'
-[ "$(git -C repo rev-parse HEAD^1)" = "2dd50b6425c7d79f4695aa69d05467e1a00fc20f" ]
-git -C repo cat-file commit HEAD | grep -q '^msg$'
+[ "$(git -C repo rev-parse HEAD)" = "2dd50b6425c7d79f4695aa69d05467e1a00fc20f" ]
+[ ! -f repo/.git/MERGE_MODE ]
+[ ! -f repo/.git/MERGE_HEAD ]
+[ -f repo/.git/MERGE_MSG ]
 
 rm -rf repo
