@@ -88,3 +88,5 @@ elif [ "$1" = "--no-reset" ]; then
     git write-tree
     exit 0
 fi
+
+exec git commit "$@"

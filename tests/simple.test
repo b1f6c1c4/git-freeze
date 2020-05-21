@@ -1,0 +1,12 @@
+git clone --branch example-repo2 --recurse-submodules https://github.com/b1f6c1c4/git-get repo
+
+(cd repo && git-freeze -m msg)
+
+[ ! -f sub/.git ]
+[ ! -f xsub/.git ]
+[ ! -f xsub/sub/.git ]
+git -C repo ls-files -s | grep -q -v '^160000'
+git -C repo cat-file commit HEAD | grep -q '^parent 2dd50b6425c7d79f4695aa69d05467e1a00fc20f$'
+git -C repo cat-file commit HEAD | grep -q '^msg$'
+
+rm -rf repo
