@@ -11,6 +11,7 @@ usage() {
     cat - <<EOF
 Usage: git-freeze [-h|--help]
         [--tree|--octopus] [--no-commit]
+        [--keep-gitmodules]
         [--] <args-for-git-commit>
 
     Convert submodules to regular directories (of their HEADs)
@@ -22,6 +23,8 @@ Usage: git-freeze [-h|--help]
         Warning: ENTIRE history of ALL submodules is a huge deal!
 
     --no-commit: Don't commit (like git merge --no-commit)
+
+    --keep-git-modules: Do not remove the .gitmodules file
 EOF
 }
 
@@ -42,6 +45,7 @@ fi
 OCTOPUS=
 COMMIT=YES
 TREE=
+KEEP_GITMODULES=
 ARGS=()
 while [ "$#" -gt 0 ]; do
     case "$1" in
@@ -60,6 +64,10 @@ while [ "$#" -gt 0 ]; do
         --tree)
             COMMIT=
             TREE=YES
+            shift
+            ;;
+        --keep-gitmodules)
+            KEEP_GITMODULES=YES
             shift
             ;;
         --)
@@ -91,6 +99,11 @@ elif [ -f "$G/MERGE_HEAD" ]; then
     exit 3
 fi
 
+if [ -z "$(git submodule foreach)" ]; then
+    echo "Error: There is no submodule available." >&2
+    exit 2
+fi
+
 if [ ! -x "$0" ]; then
     echo "Error: \$0 does not exist. Don't source the script." >&2
     exit 3
@@ -116,6 +129,8 @@ TMPSH="$(mktemp)"
 git submodule foreach --recursive "$0" --- "$WORD" | sed 's_^Entering _P=_' > "$TMPSH"
 source "$TMPSH"
 rm -f "$TMPSH"
+
+[ -z "$KEEP_GITMODULES" ] && git update-index --force-remove -- .gitmodules
 
 [ -z "$OCTOPUS" ] && rm -f "$G/MERGE_HEAD"
 

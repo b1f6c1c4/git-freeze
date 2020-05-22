@@ -2,10 +2,13 @@ git clone --branch example-repo2 --recurse-submodules https://github.com/b1f6c1c
 
 R="$(cd repo && git-freeze --tree)"
 
-[ "$R" = "7ac5ce0b3ee7cf44411bfebb38fefe7ff5876517" ]
+[ "$R" = "01d66d95cb0593eed60e6bd2610720b0665d5ffd" ]
+
+[ -f repo/.gitmodules ]
 [ -f repo/sub/.git ]
 [ -f repo/xsub/.git ]
 [ -f repo/xsub/sub/.git ]
+[ -n "$(git -C repo ls-files -s -- .gitmodules)" ]
 git -C repo ls-files -s | grep -q '^160000'
 [ "$(git -C repo rev-parse HEAD)" = "2dd50b6425c7d79f4695aa69d05467e1a00fc20f" ]
 
