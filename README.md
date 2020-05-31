@@ -17,12 +17,14 @@ git config --global alias.freeze '!'"$(pwd)/git-freeze/git-freeze"
 ## Usage
 
 ```
-Usage: git-freeze [-h|--help]
+Usage: git-freeze [-h|--help] [-n|--dry-run]
         [--tree|--octopus] [--no-commit]
         [--keep-gitmodules]
         [--] <args-for-git-commit>
 
     Convert submodules to regular directories (of their HEADs)
+
+    -n|--dry-run: Just list what commits will be freezed
 
     --tree: Don't modify anything, just give me the tree SHA-1
             (implies --no-commit)

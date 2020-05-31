@@ -9,12 +9,14 @@ gitdir() {
 
 usage() {
     cat - <<EOF
-Usage: git-freeze [-h|--help]
+Usage: git-freeze [-h|--help] [-n|--dry-run]
         [--tree|--octopus] [--no-commit]
         [--keep-gitmodules]
         [--] <args-for-git-commit>
 
     Convert submodules to regular directories (of their HEADs)
+
+    -n|--dry-run: Just list what commits will be freezed
 
     --tree: Don't modify anything, just give me the tree SHA-1
             (implies --no-commit)
@@ -33,16 +35,22 @@ G="$(gitdir)"
 if [ "$#" -eq 2 ] && [ "$1" = "---" ]; then
     cat - <<EOF
 printf "Freezing %s\n" "\$P" >&2
-git fetch $2 -q $(printf '%q' "file://$(gitdir)") HEAD
-git update-index --force-remove -- "\$P"
-git read-tree "--prefix=\$P" FETCH_HEAD
-git rev-parse FETCH_HEAD >>"\$G/MERGE_HEAD"
-printf "%s %s\n" "\$P" "\$(git rev-parse FETCH_HEAD)" >>"\$G/MERGE_MSG"
+if [ -z "\$DRY_RUN" ]; then
+    git fetch $2 -q $(printf '%q' "file://$(gitdir)") HEAD
+    git update-index --force-remove -- "\$P"
+    git read-tree "--prefix=\$P" FETCH_HEAD
+    git rev-parse FETCH_HEAD >>"\$G/MERGE_HEAD"
+    printf '%s %s\\n' "\$P" "\$(git rev-parse FETCH_HEAD)" >>"\$G/MERGE_MSG"
+else
+    printf '%s\\t' "\$P" >>"\$G/MERGE_MSG"
+    git -C $(printf '%q' "$(gitdir)") rev-parse HEAD >>"\$G/MERGE_MSG"
+fi
 EOF
     exit 0
 fi
 
 OCTOPUS=
+DRY_RUN=
 COMMIT=YES
 TREE=
 KEEP_GITMODULES=
@@ -52,6 +60,10 @@ while [ "$#" -gt 0 ]; do
         -h|--help)
             usage
             exit 0
+            ;;
+        -n|--dry-run)
+            DRY_RUN=YES
+            shift
             ;;
         --octopus)
             OCTOPUS=YES
@@ -127,8 +139,15 @@ EOF
 
 TMPSH="$(mktemp)"
 git submodule foreach --recursive "$0" --- "$WORD" | sed 's_^Entering _P=_' > "$TMPSH"
+set -x
 source "$TMPSH"
 rm -f "$TMPSH"
+
+if [ -n "$DRY_RUN" ]; then
+    cat "$G/MERGE_MSG"
+    rm "$G/MERGE_MSG"
+    exit 0
+fi
 
 [ -z "$KEEP_GITMODULES" ] && git update-index --force-remove -- .gitmodules
 
