@@ -8,6 +8,7 @@ R="$(cd repo && git-freeze --dry-run | sed '1,4d')"
 [ -f repo/xsub/.git ]
 [ -f repo/xsub/sub/.git ]
 [ -n "$(git -C repo ls-files -s -- .gitmodules)" ]
+[ -n "$(git -C repo/xsub ls-files -s -- .gitmodules)" ]
 git -C repo ls-files -s | grep -q -v '^160000'
 [ "$(git -C repo rev-parse HEAD)" = "2dd50b6425c7d79f4695aa69d05467e1a00fc20f" ]
 

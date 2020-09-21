@@ -149,7 +149,9 @@ if [ -n "$DRY_RUN" ]; then
     exit 0
 fi
 
-[ -z "$KEEP_GITMODULES" ] && git update-index --force-remove -- .gitmodules
+if [ -z "$KEEP_GITMODULES" ]; then
+    git ls-files -z --ignored --exclude '.gitmodules' | xargs -0 git update-index --force-remove --
+fi
 
 [ -z "$OCTOPUS" ] && rm -f "$G/MERGE_HEAD"
 
